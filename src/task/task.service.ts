@@ -6,7 +6,7 @@ import { CreateTaskRequestDto } from './dto/create-task.request.dto';
 import { UpdateTaskRequestDto } from './dto/update-task.request.dto';
 import { FindManyTaskRequestDto } from './dto/find-many-task.request.dto';
 import { InjectRepository } from '@mikro-orm/nestjs';
-import { BaseEntityRepository } from 'src/libs/repositories/base-entity.repository';
+import { BaseEntityRepository } from '@libs/database/repositories/base-entity.repository';
 
 @Injectable()
 export class TaskService {
