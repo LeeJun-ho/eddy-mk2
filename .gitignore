@@ -38,11 +38,13 @@ lerna-debug.log*
 # Claude Code
 .claude
 .serena
+CLAUDE.md
 
 # Cursor AI
 .cursor
 
 # dotenv environment variable files
+.env
 .env.*
 !.env.example
 
@@ -61,3 +63,6 @@ report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json
 
 # local directory
 local/
+
+# DB file
+data/mk2.db
