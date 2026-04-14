@@ -3,6 +3,7 @@ import { MikroOrmModule } from '@mikro-orm/nestjs';
 import { ReflectMetadataProvider } from '@mikro-orm/core';
 import { SqliteDriver } from '@mikro-orm/sqlite';
 import { ConfigModule, ConfigService } from '@nestjs/config';
+import { BaseEntityRepository } from './repositories/base-entity.repository';
 
 @Module({
   imports: [
@@ -15,6 +16,7 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
         entities: ['./dist/**/*.entity.js'],
         entitiesTs: ['./src/**/*.entity.ts'],
         metadataProvider: ReflectMetadataProvider,
+        entityRepository: BaseEntityRepository,
         debug: configService.get<boolean>('db.debug', false),
         allowGlobalContext: true,
         schemaGenerator: {

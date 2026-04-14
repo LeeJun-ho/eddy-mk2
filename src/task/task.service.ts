@@ -1,5 +1,5 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { EntityRepository, QueryOrder, Transactional, TransactionPropagation } from '@mikro-orm/sqlite';
+import { QueryOrder, Transactional, TransactionPropagation } from '@mikro-orm/sqlite';
 import { Task } from './task.entity';
 import { TaskPriority, TaskStatus, TaskType } from './task.enum';
 import { CreateTaskRequestDto } from './dto/create-task.request.dto';
