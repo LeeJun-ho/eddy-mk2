@@ -29,19 +29,27 @@ export class TaskService {
     return this.taskRepository.createAndFlush(task);
   }
 
+  /**
+   * 작업 목록 조회
+   */
   async findMany(dto: FindManyTaskRequestDto): Promise<Task[]> {
-    const taskList = await this.taskRepository.find({},{        
+    return this.taskRepository.find({}, {
       offset: (dto.page - 1) * dto.limit,
       limit: dto.limit,
-      orderBy: { priority: QueryOrder.DESC, id: QueryOrder.ASC }
+      orderBy: { priority: QueryOrder.DESC, id: QueryOrder.ASC },
     });
-    return taskList;
   }
 
+  /**
+   * 작업 목록 개수 조회
+   */
   async count(dto: FindManyTaskRequestDto): Promise<number> {
-    return this.taskRepository.count();
+    return this.taskRepository.count({}, {});
   }
 
+  /**
+   * 작업 상세 조회
+   */
   async findOne(id: number): Promise<Task> {
     const task = await this.taskRepository.findOne({ id });
     if (!task) {
@@ -50,6 +58,9 @@ export class TaskService {
     return task;
   }
 
+  /**
+   * 작업 수정
+   */
   @Transactional({ propagation: TransactionPropagation.REQUIRED })
   async update(id: number, dto: UpdateTaskRequestDto): Promise<Task> {
     const task = await this.findOne(id);
@@ -59,6 +70,9 @@ export class TaskService {
     return await this.taskRepository.update(task.id, dto);
   }
 
+  /**
+   * 작업 삭제
+   */
   @Transactional({ propagation: TransactionPropagation.REQUIRED })
   async remove(id: number): Promise<void> {
     const task = await this.findOne(id);
