@@ -19,6 +19,7 @@
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
     "test:e2e": "jest --config ./test/jest-e2e.json",
     "commit": "npx cz",
+    "batch:run": "nest start --entryFile=cli -- batch:run",
     "mikro-orm": "mikro-orm",
     "db:schema:sync": "node --import=tsx/esm node_modules/.bin/mikro-orm schema:update --run"
   },
@@ -39,6 +40,7 @@
     "@nestjs/platform-express": "^11.0.1",
     "@nestjs/schedule": "^6.1.1",
     "@nestjs/swagger": "^11.2.7",
+    "nest-commander": "^3.20.1",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1"
   },
