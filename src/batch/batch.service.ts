@@ -185,6 +185,19 @@ export class BatchService {
     timeoutMs: number,
   ): Promise<boolean> {
     this.logger.log(`[${step.toUpperCase()}] 시작`);
+
+    // 이미 완료된 파일이 있으면 Claude 실행 스킵
+    if (step !== TaskStep.DEVELOPMENT) {
+      const existingPath = join(this.claudeWorkingDirectory, 'local', 'context', vars.taskId, `${step}.md`);
+      if (existsSync(existingPath)) {
+        const existingContent = readFileSync(existingPath, 'utf-8');
+        if (existingContent.trimEnd().endsWith('DONE')) {
+          this.logger.log(`[${step.toUpperCase()}] 완료된 파일 존재, Claude 스킵`);
+          return true;
+        }
+      }
+    }
+
     const { stdout } = await this.commandRunner.run(
       'claude',
       ['--dangerously-skip-permissions', '-p', this.loadStepPrompt(step, vars)],
