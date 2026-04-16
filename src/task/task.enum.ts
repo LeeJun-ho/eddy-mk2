@@ -1,21 +1,33 @@
 /** 타입 */
 export enum TaskType {
+  /** 단순 작업 */
+  SIMPLE = 'simple',
   /** 개발 */
-  DEVELOPMENT = 'DEVELOPMENT',
+  DEVELOPMENT = 'development',
   /** 코드 리뷰 */
-  CODE_REVIEW = 'CODE_REVIEW',
+  CODE_REVIEW = 'code_review',
+}
+
+/** 단계 (단계별 개발 타입에서 사용) */
+export enum TaskStepPhase {
+  /** 명세 작성 */
+  SPEC = 'spec',
+  /** 계획 수립 */
+  PLAN = 'plan',
+  /** 개발 */
+  DEVELOPMENT = 'development',
 }
 
 /** 상태 */
 export enum TaskStatus {
   /** 대기 */
-  PENDING = 'PENDING',
+  PENDING = 'pending',
   /** 진행중 */
-  RUNNING = 'RUNNING',
+  RUNNING = 'running',
   /** 완료 */
-  DONE = 'DONE',
+  DONE = 'done',
   /** 실패 */
-  FAILED = 'FAILED',
+  FAILED = 'failed',
 }
 
 /** 우선순위 */

@@ -6,11 +6,15 @@ import { CreateTaskRequestDto } from './dto/create-task.request.dto';
 import { UpdateTaskRequestDto } from './dto/update-task.request.dto';
 import { FindManyTaskRequestDto } from './dto/find-many-task.request.dto';
 import { InjectRepository } from '@mikro-orm/nestjs';
+import { EntityManager } from '@mikro-orm/sqlite';
 import { BaseEntityRepository } from '@libs/database/repositories/base-entity.repository';
 
 @Injectable()
 export class TaskService {
-  constructor(@InjectRepository(Task) private readonly taskRepository: BaseEntityRepository<Task>) {}
+  constructor(
+    private readonly em: EntityManager,
+    @InjectRepository(Task) private readonly taskRepository: BaseEntityRepository<Task>,
+  ) {}
 
   /**
    * 작업 생성
@@ -77,5 +81,41 @@ export class TaskService {
   async remove(id: number): Promise<void> {
     const task = await this.findOne(id);
     await this.taskRepository.softDelete(task);
+  }
+
+  /**
+   * 대기 중인 작업 중 우선순위가 높고 먼저 등록된 순으로 하나를 조회
+   */
+  async findOneNextPendingTask(): Promise<Task | null> {
+    const task = await this.taskRepository.findOne(
+      { deletedAt: null, status: TaskStatus.PENDING },
+      { orderBy: { priority: QueryOrder.DESC, createdAt: QueryOrder.ASC } },
+    );
+
+    return task ?? null;
+  }
+
+  /**
+   * 작업 상태를 진행중으로 변경
+   */
+  @Transactional({ propagation: TransactionPropagation.REQUIRED })
+  async startTask(task: Task): Promise<void> {
+    await this.update(task.id, { status: TaskStatus.RUNNING });
+  }
+
+  /**
+   * 작업 상태를 실패로 변경
+   */
+  @Transactional({ propagation: TransactionPropagation.REQUIRED })
+  async failTask(task: Task): Promise<void> {
+    await this.update(task.id, { status: TaskStatus.FAILED });
+  }
+
+  /**
+   * 작업 상태를 완료로 변경
+   */
+  @Transactional({ propagation: TransactionPropagation.REQUIRED })
+  async finishTask(task: Task): Promise<void> {
+    await this.update(task.id, { status: TaskStatus.DONE });
   }
 }

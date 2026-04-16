@@ -17,6 +17,7 @@ export class CommandRunnerService {
         cwd: options?.cwd ?? process.cwd(),
         env: { ...process.env, ...options?.env },
         shell: false,
+        stdio: ['ignore', 'pipe', 'pipe'],
       });
 
       let stdout = '';

@@ -8,6 +8,7 @@ import { CommandRunnerService } from './batch/command-runner.service';
 import { DatabaseModule } from '@libs/database/database.module';
 import configuration from './config/configuration';
 import { TaskModule } from './task/task.module';
+import { BatchRunCommand } from './batch/batch-run.command';
 
 @Module({
   imports: [
@@ -20,6 +21,6 @@ import { TaskModule } from './task/task.module';
     TaskModule,
   ],
   controllers: [AppController],
-  providers: [AppService, BatchService, CommandRunnerService],
+  providers: [AppService, BatchService, CommandRunnerService, BatchRunCommand],
 })
 export class AppModule {}

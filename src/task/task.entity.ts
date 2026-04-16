@@ -1,5 +1,5 @@
 import { Entity, Enum, Opt, PrimaryKey, Property } from '@mikro-orm/core';
-import { TaskPriority, TaskStatus, TaskType } from './task.enum';
+import { TaskPriority, TaskStatus, TaskStepPhase, TaskType } from './task.enum';
 
 @Entity({ comment: '작업' })
 export class Task {
@@ -15,14 +15,17 @@ export class Task {
   @Property({ comment: '제목' })
   title!: string;
 
-  @Property({ type: 'text', nullable: true })
+  @Property({ comment: '설명', type: 'text', nullable: true })
   description?: string;
 
-  @Property({ nullable: true, comment: 'jira 키' })
+  @Property({ comment: 'Jira 키', nullable: true })
   jiraKey?: string;
 
   @Enum({ items: () => TaskPriority, comment: '우선순위' })
   priority!: TaskPriority;
+
+  @Enum({ items: () => TaskStepPhase, comment: '현재 단계 (단계별 개발 타입에서 사용)', nullable: true })
+  currentPhase?: TaskStepPhase;
 
   @Property({
     type: 'timestamptz',
@@ -41,12 +44,12 @@ export class Task {
   })
   updatedAt: Opt<Date>;
 
-  @Property({ type: 'timestamptz', nullable: true, comment: '삭제 일시' })
+  @Property({ comment: '삭제 일시', type: 'timestamptz', nullable: true })
   deletedAt?: Date;
 
-  @Property({ type: 'timestamptz', nullable: true, comment: '시작 일시' })
+  @Property({ comment: '시작 일시', type: 'timestamptz', nullable: true })
   startedAt?: Date;
 
-  @Property({ type: 'timestamptz', nullable: true, comment: '완료 일시' })
+  @Property({ comment: '완료 일시', type: 'timestamptz', nullable: true })
   finishedAt?: Date;
 }
