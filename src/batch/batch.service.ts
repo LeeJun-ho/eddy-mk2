@@ -2,10 +2,12 @@ import { Injectable, Logger } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { join } from 'node:path';
 import { readFileSync, existsSync } from 'node:fs';
+import { CreateRequestContext, MikroORM } from '@mikro-orm/core';
 import { CommandRunnerService } from './command-runner.service';
 import { TaskService } from '../task/task.service';
 import { Task } from '../task/task.entity';
-import { TaskType } from '../task/task.enum';
+import { TaskStep, TaskType } from '../task/task.enum';
+import { TaskStepResultService } from '../task/task-step-result.service';
 
 @Injectable()
 export class BatchService {
@@ -13,10 +15,13 @@ export class BatchService {
   private readonly claudeWorkingDirectory = '/Users/gk/workspace/votoolab/votoolab-crm-backend_';
 
   constructor(
+    private readonly orm: MikroORM,
     private readonly commandRunner: CommandRunnerService,
     private readonly taskService: TaskService,
+    private readonly taskStepResultService: TaskStepResultService,
   ) {}
 
+  @CreateRequestContext()
   @Cron(CronExpression.EVERY_HOUR)
   async runEveryMinuteBatch(): Promise<void> {
     this.logger.log('스케줄 배치 실행 시작');
@@ -116,15 +121,15 @@ export class BatchService {
     await this.cleanupWorkingDirectory();
 
     // SPEC 단계
-    const specOk = await this.runClaudeStep('spec', vars, task, 600_000);
+    const specOk = await this.runClaudeStep(TaskStep.SPEC, vars, task, 600_000);
     if (!specOk) return;
 
     // PLAN 단계
-    const planOk = await this.runClaudeStep('plan', vars, task, 600_000);
+    const planOk = await this.runClaudeStep(TaskStep.PLAN, vars, task, 600_000);
     if (!planOk) return;
 
     // DEVELOPMENT 단계
-    await this.runClaudeStep('development', vars, task, 3_600_000);
+    await this.runClaudeStep(TaskStep.DEVELOPMENT, vars, task, 3_600_000);
 
     // 작업 상태를 완료로 변경
     // 브랜치를 확인해서 develop 브랜치가 아니면 실패
@@ -174,12 +179,25 @@ export class BatchService {
    * 클로드 단계 실행(spec, plan, development)
    */
   private async runClaudeStep(
-    step: string,
+    step: TaskStep,
     vars: Record<string, string>,
     task: Task,
     timeoutMs: number,
   ): Promise<boolean> {
     this.logger.log(`[${step.toUpperCase()}] 시작`);
+
+    // 이미 완료된 파일이 있으면 Claude 실행 스킵
+    if (step !== TaskStep.DEVELOPMENT) {
+      const existingPath = join(this.claudeWorkingDirectory, 'local', 'context', vars.taskId, `${step}.md`);
+      if (existsSync(existingPath)) {
+        const existingContent = readFileSync(existingPath, 'utf-8');
+        if (existingContent.trimEnd().endsWith('DONE')) {
+          this.logger.log(`[${step.toUpperCase()}] 완료된 파일 존재, Claude 스킵`);
+          return true;
+        }
+      }
+    }
+
     const { stdout } = await this.commandRunner.run(
       'claude',
       ['--dangerously-skip-permissions', '-p', this.loadStepPrompt(step, vars)],
@@ -187,10 +205,26 @@ export class BatchService {
     );
     this.logger.log(`[${step.toUpperCase()}] 완료: ${stdout}`);
 
-    if (step === 'development') return true;
+    if (step === TaskStep.DEVELOPMENT) {
+      await this.taskStepResultService.create({
+        task,
+        step,
+        stdout,
+      });
+      return true;
+    }
 
     const outputPath = join(this.claudeWorkingDirectory, 'local', 'context', vars.taskId, `${step}.md`);
-    if (!existsSync(outputPath) || !readFileSync(outputPath, 'utf-8').trimEnd().endsWith('DONE')) {
+    const content = existsSync(outputPath) ? readFileSync(outputPath, 'utf-8') : undefined;
+
+    await this.taskStepResultService.create({
+      task,
+      step,
+      content,
+      stdout,
+    });
+
+    if (!content?.trimEnd().endsWith('DONE')) {
       this.logger.error(`[${step.toUpperCase()}] 실패: 파일이 정상적으로 완료되지 않았습니다.`);
       await this.taskService.failTask(task);
       return false;
@@ -202,7 +236,7 @@ export class BatchService {
   /**
    * 단계 프롬프트 로드
   */
-  private loadStepPrompt(step: string, vars: Record<string, string>): string {
+  private loadStepPrompt(step: TaskStep, vars: Record<string, string>): string {
     const path = join(process.cwd(), 'docs', 'step', `${step}.md`);
     let template = readFileSync(path, 'utf-8');
     for (const [key, value] of Object.entries(vars)) {

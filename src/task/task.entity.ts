@@ -1,5 +1,5 @@
 import { Entity, Enum, Opt, PrimaryKey, Property } from '@mikro-orm/core';
-import { TaskPriority, TaskStatus, TaskStepPhase, TaskType } from './task.enum';
+import { TaskPriority, TaskStatus, TaskStep, TaskType } from './task.enum';
 
 @Entity({ comment: '작업' })
 export class Task {
@@ -24,8 +24,8 @@ export class Task {
   @Enum({ items: () => TaskPriority, comment: '우선순위' })
   priority!: TaskPriority;
 
-  @Enum({ items: () => TaskStepPhase, comment: '현재 단계 (단계별 개발 타입에서 사용)', nullable: true })
-  currentPhase?: TaskStepPhase;
+  @Enum({ items: () => TaskStep, comment: '현재 단계 (단계별 개발 타입에서 사용)', nullable: true })
+  currentStep?: TaskStep;
 
   @Property({
     type: 'timestamptz',

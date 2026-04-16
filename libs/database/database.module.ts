@@ -18,7 +18,6 @@ import { BaseEntityRepository } from './repositories/base-entity.repository';
         metadataProvider: ReflectMetadataProvider,
         entityRepository: BaseEntityRepository,
         debug: configService.get<boolean>('db.debug', false),
-        allowGlobalContext: true,
         schemaGenerator: {
           createForeignKeyConstraints: true,
         },

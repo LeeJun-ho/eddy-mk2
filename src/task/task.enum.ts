@@ -8,8 +8,8 @@ export enum TaskType {
   CODE_REVIEW = 'code_review',
 }
 
-/** 단계 (단계별 개발 타입에서 사용) */
-export enum TaskStepPhase {
+/** 단계 */
+export enum TaskStep {
   /** 명세 작성 */
   SPEC = 'spec',
   /** 계획 수립 */
