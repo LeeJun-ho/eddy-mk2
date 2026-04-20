@@ -112,10 +112,17 @@ export class BatchService {
       taskId: String(task.id),
       title: task.title,
       description: task.description ?? '',
+      jiraKey: task.jiraKey ?? '',
     };
 
     // 작업 상태를 진행중으로 변경
     await this.taskService.startTask(task);
+
+    // jiraKey가 있으면 티켓 검증 (역할, 담당자, 진행 상태)
+    if (task.jiraKey) {
+      const isValid = await this.validateJiraTicket(task.jiraKey, 180_000);
+      if (!isValid) return;
+    }
 
     // 작업 디렉토리 정리 (uncommitted 커밋, develop 브랜치 복귀)
     await this.cleanupWorkingDirectory();
@@ -145,6 +152,26 @@ export class BatchService {
     // 브랜치를 확인해서 develop 브랜치면 성공
     await this.taskService.finishTask(task);
     this.logger.log(`[단계별] 작업 #${task.id} 완료`);
+  }
+
+  /**
+   * Jira 티켓 검증 (역할: 백엔드, 담당자, 진행 상태: 진행/백로그)
+   */
+  private async validateJiraTicket(jiraKey: string, timeoutMs: number): Promise<boolean> {
+    this.logger.log(`[JIRA-CHECK] ${jiraKey} 티켓 검증 시작`);
+    const prompt = this.loadStepPrompt('jira-check', { jiraKey });
+    const { stdout } = await this.commandRunner.run(
+      'claude',
+      ['--dangerously-skip-permissions', '-p', prompt],
+      { cwd: this.claudeWorkingDirectory, timeoutMs },
+    );
+    this.logger.log(`[JIRA-CHECK] 결과: ${stdout}`);
+    const lastLine = stdout.trim().split('\n').pop()?.trim();
+    if (lastLine !== 'VALID') {
+      this.logger.warn(`[JIRA-CHECK] 검증 실패, 작업을 건너뜁니다.`);
+      return false;
+    }
+    return true;
   }
 
   /**
@@ -185,10 +212,14 @@ export class BatchService {
     timeoutMs: number,
   ): Promise<boolean> {
     this.logger.log(`[${step.toUpperCase()}] 시작`);
+    let docsFileName: string = step;
+    if (step !== TaskStep.PLAN) {
+      docsFileName = vars.jiraKey ? `${step}-jira` : step;
+    }
 
     // 이미 완료된 파일이 있으면 Claude 실행 스킵
     if (step !== TaskStep.DEVELOPMENT) {
-      const existingPath = join(this.claudeWorkingDirectory, 'local', 'context', vars.taskId, `${step}.md`);
+      const existingPath = join(this.claudeWorkingDirectory, 'local', 'context', vars.taskId, `${docsFileName}.md`);
       if (existsSync(existingPath)) {
         const existingContent = readFileSync(existingPath, 'utf-8');
         if (existingContent.trimEnd().endsWith('DONE')) {
@@ -198,9 +229,10 @@ export class BatchService {
       }
     }
 
+    // 프롬프트 로드
     const { stdout } = await this.commandRunner.run(
       'claude',
-      ['--dangerously-skip-permissions', '-p', this.loadStepPrompt(step, vars)],
+      ['--dangerously-skip-permissions', '-p', this.loadStepPrompt(docsFileName, vars)],
       { cwd: this.claudeWorkingDirectory, timeoutMs },
     );
     this.logger.log(`[${step.toUpperCase()}] 완료: ${stdout}`);
@@ -236,8 +268,8 @@ export class BatchService {
   /**
    * 단계 프롬프트 로드
   */
-  private loadStepPrompt(step: TaskStep, vars: Record<string, string>): string {
-    const path = join(process.cwd(), 'docs', 'step', `${step}.md`);
+  private loadStepPrompt(docsFileName: string, vars: Record<string, string>, ): string {
+    const path = join(process.cwd(), 'docs', 'step', `${docsFileName}.md`);
     let template = readFileSync(path, 'utf-8');
     for (const [key, value] of Object.entries(vars)) {
       template = template.replaceAll(`{{${key}}}`, value);
