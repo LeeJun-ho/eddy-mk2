@@ -14,6 +14,9 @@ export class CreateTaskRequestDto {
   @ApiProperty({ title: 'Jira 키', nullable: true, required: false })
   jiraKey?: string;
 
+  @ApiProperty({ title: '코드리뷰 실행 여부', required: false, default: false })
+  enableCodeReview?: boolean;
+
   @ApiProperty({ title: '우선순위', enum: TaskPriority, required: false })
   priority?: TaskPriority;
 }

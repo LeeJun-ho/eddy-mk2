@@ -21,6 +21,9 @@ export class Task {
   @Property({ comment: 'Jira 키', nullable: true })
   jiraKey?: string;
 
+  @Property({ comment: '코드리뷰 실행 여부', default: false })
+  enableCodeReview: boolean = false;
+
   @Enum({ items: () => TaskPriority, comment: '우선순위' })
   priority!: TaskPriority;
 

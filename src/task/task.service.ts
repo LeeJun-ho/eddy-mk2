@@ -27,6 +27,7 @@ export class TaskService {
       status: TaskStatus.PENDING,
       description: dto.description,
       jiraKey: dto.jiraKey,
+      enableCodeReview: dto.enableCodeReview ?? false,
       priority: (dto.priority as TaskPriority | undefined) ?? TaskPriority.MEDIUM,
     });
 
