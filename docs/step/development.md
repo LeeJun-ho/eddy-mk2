@@ -24,19 +24,4 @@ git branch --show-current
 관련 테스트를 실행한다.
 
 - 오류 발생 시 → 수정 후 다시 테스트 실행 (통과할 때까지 반복)
-- 전체 통과 시 → STEP 4로 진행
-
----
-
-## STEP 4 — 커밋
-
-`local/context/{{taskId}}/plan.md`가 위치한 프로젝트의 `.claude/commit-convention.md`에 따라 커밋한다.
-변경 사항의 성격에 따라 단일 커밋 또는 여러 커밋으로 나누어도 된다.
-
----
-
-## STEP 5 — develop 브랜치로 복귀
-
-```bash
-git checkout develop
-```
+- 전체 통과 시 → 개발 단계를 완료하고 종료한다.
