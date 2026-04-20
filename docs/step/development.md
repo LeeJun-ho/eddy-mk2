@@ -4,14 +4,12 @@
 
 ## STEP 1 — 브랜치 생성
 
-현재 브랜치를 확인한 후, 작업 내용을 기반으로 영문 kebab-case 브랜치명을 결정한다.
-
 ```bash
 git branch --show-current
 ```
 
-- 해당 feature 브랜치가 없으면 → `git flow feature start <브랜치명>`
-- 이미 있으면 → `git checkout feature/<브랜치명>`
+- 해당 feature 브랜치가 없으면 → `git flow feature start auto-{{taskId}}`
+- 이미 있으면 → `git checkout feature/auto-{{taskId}}`
 
 ---
 
