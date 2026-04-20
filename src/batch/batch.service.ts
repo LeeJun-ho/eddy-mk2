@@ -135,6 +135,12 @@ export class BatchService {
     const planOk = await this.runClaudeStep(TaskStep.PLAN, vars, task, 600_000);
     if (!planOk) return;
 
+    // PLAN 완료 후 Jira 댓글 등록
+    // 실패해도 다음 단계로 진행
+    if (task.jiraKey) {
+      await this.postJiraPlanComment(vars, 120_000);
+    }
+
     // DEVELOPMENT 단계
     await this.runClaudeStep(TaskStep.DEVELOPMENT, vars, task, 3_600_000);
 
@@ -263,6 +269,24 @@ export class BatchService {
     }
 
     return true;
+  }
+
+  /**
+   * PLAN 완료 후 Jira 댓글 등록
+   */
+  private async postJiraPlanComment(vars: Record<string, string>, timeoutMs: number): Promise<void> {
+    this.logger.log(`[JIRA-COMMENT] ${vars.jiraKey} 댓글 등록 시작`);
+    const { stdout } = await this.commandRunner.run(
+      'claude',
+      ['--dangerously-skip-permissions', '-p', this.loadStepPrompt('jira-comment-spec-plan', vars)],
+      { cwd: this.claudeWorkingDirectory, timeoutMs },
+    );
+    const lastLine = stdout.trim().split('\n').pop()?.trim();
+    if (lastLine === 'SKIPPED') {
+      this.logger.warn(`[JIRA-COMMENT] 이미 등록된 댓글이 있어 건너뜁니다.`);
+    } else {
+      this.logger.log(`[JIRA-COMMENT] 댓글 등록 완료`);
+    }
   }
 
   /**
