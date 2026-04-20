@@ -149,11 +149,11 @@ export class BatchService {
       const reviewOk = await this.runClaudeStep(TaskStep.CODE_REVIEW, vars, task, 3_600_000);
       if (!reviewOk) return;
 
-      // // 코드리뷰 완료 후 Jira 댓글 등록
-      // // 실패해도 다음 단계로 진행
-      // if (task.jiraKey) {
-      //   await this.postJiraComment(JiraCommentPrompt.CODE_REVIEW, vars, 120_000);
-      // }
+      // 코드리뷰 완료 후 Jira 댓글 등록
+      // 실패해도 다음 단계로 진행
+      if (task.jiraKey) {
+        await this.postJiraComment(JiraCommentPrompt.CODE_REVIEW, vars, 120_000);
+      }
     }
 
     // 마무리 (커밋 + develop 복귀)
@@ -267,7 +267,7 @@ export class BatchService {
     );
     this.logger.log(`[${step.toUpperCase()}] 완료: ${stdout}`);
 
-    if (step === TaskStep.DEVELOPMENT) {
+    if (step === TaskStep.DEVELOPMENT || step === TaskStep.FINALIZE) {
       await this.taskStepResultService.create({
         task,
         step,
