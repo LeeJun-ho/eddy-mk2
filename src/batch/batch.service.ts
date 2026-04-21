@@ -8,6 +8,7 @@ import { TaskService } from '../task/task.service';
 import { Task } from '../task/task.entity';
 import { JiraCommentPrompt, StepPrompt, TaskStep, TaskType } from '../task/task.enum';
 import { TaskStepResultService } from '../task/task-step-result.service';
+import { JiraService } from '@libs/jira/jira.service';
 
 @Injectable()
 export class BatchService {
@@ -19,6 +20,7 @@ export class BatchService {
     private readonly commandRunner: CommandRunnerService,
     private readonly taskService: TaskService,
     private readonly taskStepResultService: TaskStepResultService,
+    private readonly jiraService: JiraService,
   ) {}
 
   @CreateRequestContext()
@@ -86,6 +88,9 @@ export class BatchService {
       }
     }
 
+    // const sessionUsedPercent = 0;
+    // const isRun = true;
+
     return { sessionUsedPercent, isRun };
   }
 
@@ -138,7 +143,7 @@ export class BatchService {
     // PLAN 완료 후 Jira 댓글 등록
     // 실패해도 다음 단계로 진행
     if (task.jiraKey) {
-      await this.postJiraComment(JiraCommentPrompt.SPEC_PLAN, vars, 120_000);
+      await this.postJiraComment(JiraCommentPrompt.SPEC_PLAN, vars);
     }
 
     // DEVELOPMENT 단계
@@ -152,7 +157,7 @@ export class BatchService {
       // 코드리뷰 완료 후 Jira 댓글 등록
       // 실패해도 다음 단계로 진행
       if (task.jiraKey) {
-        await this.postJiraComment(JiraCommentPrompt.CODE_REVIEW, vars, 120_000);
+        await this.postJiraComment(JiraCommentPrompt.CODE_REVIEW, vars);
       }
     }
 
@@ -298,18 +303,60 @@ export class BatchService {
   /**
    * Jira 댓글 등록 (실패해도 계속 진행)
    */
-  private async postJiraComment(docsFileName: JiraCommentPrompt, vars: Record<string, string>, timeoutMs: number): Promise<void> {
-    this.logger.log(`[JIRA-COMMENT] ${vars.jiraKey} 댓글 등록 시작 (${docsFileName})`);
-    const { stdout } = await this.commandRunner.run(
-      'claude',
-      ['--dangerously-skip-permissions', '-p', this.loadStepPrompt(docsFileName, vars)],
-      { cwd: this.claudeWorkingDirectory, timeoutMs },
-    );
-    const lastLine = stdout.trim().split('\n').pop()?.trim();
-    if (lastLine === 'SKIPPED') {
-      this.logger.warn(`[JIRA-COMMENT] 이미 등록된 댓글이 있어 건너뜁니다.`);
-    } else {
-      this.logger.log(`[JIRA-COMMENT] 댓글 등록 완료`);
+  private async postJiraComment(type: JiraCommentPrompt, vars: Record<string, string>): Promise<void> {
+    const { jiraKey, taskId } = vars;
+    const loggerHeader = type === JiraCommentPrompt.SPEC_PLAN ? '[JIRA-COMMENT:SPEC/PLAN]' : '[JIRA-COMMENT:CODE_REVIEW]';
+    this.logger.log(`${loggerHeader} #jira:${jiraKey} 댓글 등록 시작`);
+    try {
+      const contextDir = join(this.claudeWorkingDirectory, 'local', 'context', taskId);
+
+      if (type === JiraCommentPrompt.SPEC_PLAN) {
+        // 댓글 중복확인
+        const marker = '요구사항 (Spec Bot)';
+        if (await this.jiraService.hasCommentWithFirstLineMarker(jiraKey, marker)) {
+          this.logger.warn(`${loggerHeader} 이미 등록된 댓글이 있어 건너뜁니다.`);
+          return;
+        }
+
+        // API or 프롬프트 실행 중 하나를 선택해 댓글 등록
+
+        // API 요청
+        const spec = readFileSync(join(contextDir, 'spec.md'), 'utf-8');
+        const plan = readFileSync(join(contextDir, 'plan.md'), 'utf-8');
+        const body = `## 요구사항 (Spec Bot)\n\n${spec}\n\n---\n\n## 구현 계획 (Plan Bot)\n\n${plan}`;
+        await this.jiraService.addComment(jiraKey, body);
+
+        // 프롬프트 실행
+        // let docsFileName = JiraCommentPrompt.SPEC_PLAN;
+        // const { stdout } = await this.commandRunner.run(
+        //   'claude',
+        //   ['--dangerously-skip-permissions', '-p', this.loadStepPrompt(docsFileName, vars)],
+        //   { cwd: this.claudeWorkingDirectory, timeoutMs: 600_000 },
+        // );
+        // this.logger.log(`${loggerHeader} 완료: ${stdout}`);
+
+      } else if (type === JiraCommentPrompt.CODE_REVIEW) {
+        // 코드리뷰는 댓글 중복확인 안함
+        // API or 프롬프트 실행 중 하나를 선택해 댓글 등록
+
+        // API 요청
+        const review = readFileSync(join(contextDir, 'code-review.md'), 'utf-8');
+        const body = `## 코드 리뷰 결과 (Bot)\n\n${review}`;
+        await this.jiraService.addComment(jiraKey, body);
+
+        // 프롬프트 실행
+        // let docsFileName = JiraCommentPrompt.CODE_REVIEW;
+        // const { stdout } = await this.commandRunner.run(
+        //   'claude',
+        //   ['--dangerously-skip-permissions', '-p', this.loadStepPrompt(docsFileName, vars)],
+        //   { cwd: this.claudeWorkingDirectory, timeoutMs: 600_000 },
+        // );
+        // this.logger.log(`${loggerHeader} 완료: ${stdout}`);
+      }
+
+      this.logger.log(`${loggerHeader} 댓글 등록 완료`);
+    } catch (err) {
+      this.logger.error(`${loggerHeader} 댓글 등록 실패 (계속 진행): ${err}`);
     }
   }
 
