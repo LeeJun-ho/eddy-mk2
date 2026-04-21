@@ -1,4 +1,9 @@
 export default () => ({
+  jira: {
+    baseUrl: process.env.JIRA_BASE_URL || '',
+    email: process.env.JIRA_EMAIL || '',
+    apiToken: process.env.JIRA_API_TOKEN || '',
+  },
   env: process.env.NODE_ENV || 'development',
   app: {
     name: process.env.APP_NAME || 'eddy-mk2',
