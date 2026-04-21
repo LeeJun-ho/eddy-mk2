@@ -21,6 +21,9 @@ export class TaskResponseDto {
   @ApiProperty({ title: 'Jira 키', example: 'VL-123', nullable: true, required: false })
   jiraKey?: string;
 
+  @ApiProperty({ title: '코드리뷰 실행 여부', example: false })
+  enableCodeReview: boolean;
+
   @ApiProperty({ title: '우선순위', enum: TaskPriority, enumName: 'TaskPriority', example: TaskPriority.MEDIUM })
   priority: TaskPriority;
 
@@ -44,6 +47,7 @@ export class TaskResponseDto {
     response.title = entity.title;
     response.description = entity.description;
     response.jiraKey = entity.jiraKey;
+    response.enableCodeReview = entity.enableCodeReview;
     response.priority = entity.priority;
     response.createdAt = entity.createdAt;
     response.updatedAt = entity.updatedAt;

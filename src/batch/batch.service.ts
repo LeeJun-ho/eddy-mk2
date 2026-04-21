@@ -6,7 +6,7 @@ import { CreateRequestContext, MikroORM } from '@mikro-orm/core';
 import { CommandRunnerService } from './command-runner.service';
 import { TaskService } from '../task/task.service';
 import { Task } from '../task/task.entity';
-import { TaskStep, TaskType } from '../task/task.enum';
+import { JiraCommentPrompt, StepPrompt, TaskStep, TaskType } from '../task/task.enum';
 import { TaskStepResultService } from '../task/task-step-result.service';
 
 @Injectable()
@@ -138,11 +138,27 @@ export class BatchService {
     // PLAN 완료 후 Jira 댓글 등록
     // 실패해도 다음 단계로 진행
     if (task.jiraKey) {
-      await this.postJiraPlanComment(vars, 120_000);
+      await this.postJiraComment(JiraCommentPrompt.SPEC_PLAN, vars, 120_000);
     }
 
     // DEVELOPMENT 단계
     await this.runClaudeStep(TaskStep.DEVELOPMENT, vars, task, 3_600_000);
+
+    // 코드리뷰 실행
+    if (task.enableCodeReview) {
+      const reviewOk = await this.runClaudeStep(TaskStep.CODE_REVIEW, vars, task, 3_600_000);
+      if (!reviewOk) return;
+
+      // 코드리뷰 완료 후 Jira 댓글 등록
+      // 실패해도 다음 단계로 진행
+      if (task.jiraKey) {
+        await this.postJiraComment(JiraCommentPrompt.CODE_REVIEW, vars, 120_000);
+      }
+    }
+
+    // 마무리 (커밋 + develop 복귀)
+    const finalizeOk = await this.runClaudeStep(TaskStep.FINALIZE, vars, task, 600_000);
+    if (!finalizeOk) return;
 
     // 작업 상태를 완료로 변경
     // 브랜치를 확인해서 develop 브랜치가 아니면 실패
@@ -165,7 +181,7 @@ export class BatchService {
    */
   private async validateJiraTicket(jiraKey: string, timeoutMs: number): Promise<boolean> {
     this.logger.log(`[JIRA-CHECK] ${jiraKey} 티켓 검증 시작`);
-    const prompt = this.loadStepPrompt('jira-check', { jiraKey });
+    const prompt = this.loadStepPrompt(StepPrompt.JIRA_CHECK, { jiraKey });
     const { stdout } = await this.commandRunner.run(
       'claude',
       ['--dangerously-skip-permissions', '-p', prompt],
@@ -218,9 +234,17 @@ export class BatchService {
     timeoutMs: number,
   ): Promise<boolean> {
     this.logger.log(`[${step.toUpperCase()}] 시작`);
-    let docsFileName: string = step;
-    if (step !== TaskStep.PLAN) {
-      docsFileName = vars.jiraKey ? `${step}-jira` : step;
+    let docsFileName: StepPrompt;
+    if (step === TaskStep.CODE_REVIEW) {
+      docsFileName = StepPrompt.CODE_REVIEW;
+    } else if (step === TaskStep.FINALIZE) {
+      docsFileName = vars.jiraKey ? StepPrompt.FINALIZE_JIRA : StepPrompt.FINALIZE;
+    } else if (step === TaskStep.DEVELOPMENT) {
+      docsFileName = vars.jiraKey ? StepPrompt.DEVELOPMENT_JIRA : StepPrompt.DEVELOPMENT;
+    } else if (step === TaskStep.SPEC) {
+      docsFileName = vars.jiraKey ? StepPrompt.SPEC_JIRA : StepPrompt.SPEC;
+    } else {
+      docsFileName = StepPrompt.PLAN;
     }
 
     // 이미 완료된 파일이 있으면 Claude 실행 스킵
@@ -243,7 +267,7 @@ export class BatchService {
     );
     this.logger.log(`[${step.toUpperCase()}] 완료: ${stdout}`);
 
-    if (step === TaskStep.DEVELOPMENT) {
+    if (step === TaskStep.DEVELOPMENT || step === TaskStep.FINALIZE) {
       await this.taskStepResultService.create({
         task,
         step,
@@ -272,13 +296,13 @@ export class BatchService {
   }
 
   /**
-   * PLAN 완료 후 Jira 댓글 등록
+   * Jira 댓글 등록 (실패해도 계속 진행)
    */
-  private async postJiraPlanComment(vars: Record<string, string>, timeoutMs: number): Promise<void> {
-    this.logger.log(`[JIRA-COMMENT] ${vars.jiraKey} 댓글 등록 시작`);
+  private async postJiraComment(docsFileName: JiraCommentPrompt, vars: Record<string, string>, timeoutMs: number): Promise<void> {
+    this.logger.log(`[JIRA-COMMENT] ${vars.jiraKey} 댓글 등록 시작 (${docsFileName})`);
     const { stdout } = await this.commandRunner.run(
       'claude',
-      ['--dangerously-skip-permissions', '-p', this.loadStepPrompt('jira-comment-spec-plan', vars)],
+      ['--dangerously-skip-permissions', '-p', this.loadStepPrompt(docsFileName, vars)],
       { cwd: this.claudeWorkingDirectory, timeoutMs },
     );
     const lastLine = stdout.trim().split('\n').pop()?.trim();
@@ -292,7 +316,7 @@ export class BatchService {
   /**
    * 단계 프롬프트 로드
   */
-  private loadStepPrompt(docsFileName: string, vars: Record<string, string>, ): string {
+  private loadStepPrompt(docsFileName: StepPrompt | JiraCommentPrompt, vars: Record<string, string>): string {
     const path = join(process.cwd(), 'docs', 'step', `${docsFileName}.md`);
     let template = readFileSync(path, 'utf-8');
     for (const [key, value] of Object.entries(vars)) {
