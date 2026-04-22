@@ -37,10 +37,10 @@ Jira 티켓 ID: {{jiraKey}}
 ```
 ## 원본 요청
 
-**제목:** {{title}}
-**Jira 티켓:** {{jiraKey}}
-**대상 디렉토리:** (파악한 앱 디렉토리)
-**Jira 티켓 원문:**
+**제목:** {{title}}  
+**Jira 티켓:** {{jiraKey}}  
+**대상 디렉토리:** (파악한 앱 디렉토리)  
+**Jira 티켓 원문:**  
 (Summary)
 
 (Description)
