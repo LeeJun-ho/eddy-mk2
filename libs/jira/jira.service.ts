@@ -5,6 +5,20 @@ import { markdownToAdf } from 'marklassian';
 type AdfNode = { type: string; text?: string; content?: AdfNode[] };
 type JiraCommentBody = string | AdfNode;
 
+export type JiraIssue = {
+  fields: {
+    role?: { value: string }[];
+    components?: { name: string }[];
+    assignee?: { accountId: string; displayName: string } | null;
+    status?: { name: string };
+  };
+};
+
+export type JiraUser = {
+  accountId: string;
+  displayName: string;
+};
+
 @Injectable()
 export class JiraService {
   private readonly logger = new Logger(JiraService.name);
@@ -16,6 +30,41 @@ export class JiraService {
     const email = this.configService.get<string>('jira.email', '');
     const apiToken = this.configService.get<string>('jira.apiToken', '');
     this.authHeader = `Basic ${Buffer.from(`${email}:${apiToken}`).toString('base64')}`;
+  }
+
+  /**
+   * 이슈 단건 조회
+   */
+  async getIssue(issueKey: string): Promise<JiraIssue> {
+    const fields = 'customfield_10130,components,assignee,status';
+    const res = await fetch(
+      `${this.baseUrl}/rest/api/3/issue/${issueKey}?fields=${fields}`,
+      { headers: { Authorization: this.authHeader, Accept: 'application/json' } },
+    );
+    if (!res.ok) {
+      throw new Error(`[JIRA] 이슈 조회 실패: ${res.status} ${await res.text()}`);
+    }
+    const raw = await res.json() as { fields: { customfield_10130?: { value: string }[] } & Omit<JiraIssue['fields'], '역할'> };
+    return {
+      fields: {
+        ...raw.fields,
+        role: raw.fields.customfield_10130,
+      },
+    };
+  }
+
+  /**
+   * 현재 인증된 사용자 조회
+   */
+  async getCurrentUser(): Promise<JiraUser> {
+    const res = await fetch(
+      `${this.baseUrl}/rest/api/3/myself`,
+      { headers: { Authorization: this.authHeader, Accept: 'application/json' } },
+    );
+    if (!res.ok) {
+      throw new Error(`[JIRA] 사용자 조회 실패: ${res.status} ${await res.text()}`);
+    }
+    return res.json() as Promise<JiraUser>;
   }
 
   /**
