@@ -1,4 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { join } from 'node:path';
 import { readFileSync, existsSync } from 'node:fs';
@@ -19,8 +20,8 @@ export enum JiraTicketValidationType {
 @Injectable()
 export class BatchService {
   private readonly logger = new Logger(BatchService.name);
-  private readonly claudeWorkingDirectory = '/Users/gk/workspace/votoolab/votoolab-crm-backend_';
-  private readonly jiraActionType = JiraTicketValidationType.API
+  private readonly workingDirectory: string;
+  private readonly jiraActionType = JiraTicketValidationType.API;
 
   constructor(
     private readonly orm: MikroORM,
@@ -28,7 +29,10 @@ export class BatchService {
     private readonly taskService: TaskService,
     private readonly taskStepResultService: TaskStepResultService,
     private readonly jiraService: JiraService,
-  ) {}
+    private readonly configService: ConfigService,
+  ) {
+    this.workingDirectory = this.configService.get<string>('batch.workingDirectory', process.cwd());
+  }
 
   @CreateRequestContext()
   @Cron(CronExpression.EVERY_HOUR)
@@ -109,7 +113,7 @@ export class BatchService {
     const { stdout } = await this.commandRunner.run(
       'claude',
       ['--dangerously-skip-permissions', '-p', task.description ?? task.title],
-      { cwd: this.claudeWorkingDirectory, timeoutMs: 600_000 },
+      { cwd: this.workingDirectory, timeoutMs: 600_000 },
     );
     this.logger.log(`[단순] claude 응답: ${stdout}`);
   }
@@ -181,7 +185,7 @@ export class BatchService {
     // 작업 상태를 완료로 변경
     // 브랜치를 확인해서 develop 브랜치가 아니면 실패
     const branch = await this.commandRunner.run('git', ['branch', '--show-current'], {
-      cwd: this.claudeWorkingDirectory,
+      cwd: this.workingDirectory,
     });
     if (branch.stdout.trim() !== 'develop') {
       this.logger.error(`[단계별] 작업 완료 후 브랜치가 develop이 아닙니다: ${branch.stdout.trim()}`);
@@ -254,7 +258,7 @@ export class BatchService {
     const { stdout } = await this.commandRunner.run(
       'claude',
       ['--dangerously-skip-permissions', '-p', prompt],
-      { cwd: this.claudeWorkingDirectory, timeoutMs },
+      { cwd: this.workingDirectory, timeoutMs },
     );
     this.logger.log(`[JIRA-CHECK] 결과: ${stdout}`);
     const lastLine = stdout.trim().split('\n').pop()?.trim();
@@ -262,7 +266,7 @@ export class BatchService {
       this.logger.warn(`[JIRA-CHECK] 검증 실패, 작업을 건너뜁니다.`);
       return false;
     }
-    
+
     this.logger.log(`[JIRA-CHECK] 검증 성공`);
     return true;
   }
@@ -275,20 +279,20 @@ export class BatchService {
 
     // uncommitted 변경사항이 있으면 커밋
     const status = await this.commandRunner.run('git', ['status', '--porcelain'], {
-      cwd: this.claudeWorkingDirectory,
+      cwd: this.workingDirectory,
     });
     if (status.stdout.trim()) {
-      await this.commandRunner.run('git', ['add', '.'], { cwd: this.claudeWorkingDirectory });
-      await this.commandRunner.run('git', ['commit', '-m', '.'], { cwd: this.claudeWorkingDirectory });
+      await this.commandRunner.run('git', ['add', '.'], { cwd: this.workingDirectory });
+      await this.commandRunner.run('git', ['commit', '-m', '.'], { cwd: this.workingDirectory });
       this.logger.log(`[CLEANUP] uncommitted 변경사항 커밋 완료`);
     }
 
     // develop 브랜치가 아니면 복귀
     const branch = await this.commandRunner.run('git', ['branch', '--show-current'], {
-      cwd: this.claudeWorkingDirectory,
+      cwd: this.workingDirectory,
     });
     if (branch.stdout.trim() !== 'develop') {
-      await this.commandRunner.run('git', ['checkout', 'develop'], { cwd: this.claudeWorkingDirectory });
+      await this.commandRunner.run('git', ['checkout', 'develop'], { cwd: this.workingDirectory });
       this.logger.log(`[CLEANUP] develop 브랜치로 전환 완료`);
     }
 
@@ -320,7 +324,7 @@ export class BatchService {
 
     // 이미 완료된 파일이 있으면 Claude 실행 스킵
     if (step !== TaskStep.DEVELOPMENT) {
-      const existingPath = join(this.claudeWorkingDirectory, 'local', 'context', vars.taskId, `${docsFileName}.md`);
+      const existingPath = join(this.workingDirectory, 'local', 'context', vars.taskId, `${docsFileName}.md`);
       if (existsSync(existingPath)) {
         const existingContent = readFileSync(existingPath, 'utf-8');
         if (existingContent.trimEnd().endsWith('DONE')) {
@@ -334,7 +338,7 @@ export class BatchService {
     const { stdout } = await this.commandRunner.run(
       'claude',
       ['--dangerously-skip-permissions', '-p', this.loadStepPrompt(docsFileName, vars)],
-      { cwd: this.claudeWorkingDirectory, timeoutMs },
+      { cwd: this.workingDirectory, timeoutMs },
     );
     this.logger.log(`[${step.toUpperCase()}] 완료: ${stdout}`);
 
@@ -347,7 +351,7 @@ export class BatchService {
       return true;
     }
 
-    const outputPath = join(this.claudeWorkingDirectory, 'local', 'context', vars.taskId, `${step}.md`);
+    const outputPath = join(this.workingDirectory, 'local', 'context', vars.taskId, `${step}.md`);
     const content = existsSync(outputPath) ? readFileSync(outputPath, 'utf-8') : undefined;
 
     await this.taskStepResultService.create({
@@ -374,7 +378,7 @@ export class BatchService {
     const loggerHeader = type === JiraCommentPrompt.SPEC_PLAN ? '[JIRA-COMMENT:SPEC/PLAN]' : '[JIRA-COMMENT:CODE_REVIEW]';
     this.logger.log(`${loggerHeader} #jira:${jiraKey} 댓글 등록 시작`);
     try {
-      const contextDir = join(this.claudeWorkingDirectory, 'local', 'context', taskId);
+      const contextDir = join(this.workingDirectory, 'local', 'context', taskId);
 
       if (type === JiraCommentPrompt.SPEC_PLAN) {
         // 댓글 중복확인
@@ -412,7 +416,7 @@ export class BatchService {
     const loggerHeader = type === JiraCommentPrompt.SPEC_PLAN ? '[JIRA-COMMENT:SPEC/PLAN]' : '[JIRA-COMMENT:CODE_REVIEW]';
     this.logger.log(`${loggerHeader} #jira:${jiraKey} 댓글 등록 시작`);
     try {
-      const contextDir = join(this.claudeWorkingDirectory, 'local', 'context', taskId);
+      const contextDir = join(this.workingDirectory, 'local', 'context', taskId);
 
       if (type === JiraCommentPrompt.SPEC_PLAN) {
         // 댓글 중복확인
@@ -427,7 +431,7 @@ export class BatchService {
         const { stdout } = await this.commandRunner.run(
           'claude',
           ['--dangerously-skip-permissions', '-p', this.loadStepPrompt(docsFileName, vars)],
-          { cwd: this.claudeWorkingDirectory, timeoutMs: 600_000 },
+          { cwd: this.workingDirectory, timeoutMs: 600_000 },
         );
         this.logger.log(`${loggerHeader} 완료: ${stdout}`);
 
@@ -437,7 +441,7 @@ export class BatchService {
         const { stdout } = await this.commandRunner.run(
           'claude',
           ['--dangerously-skip-permissions', '-p', this.loadStepPrompt(docsFileName, vars)],
-          { cwd: this.claudeWorkingDirectory, timeoutMs: 600_000 },
+          { cwd: this.workingDirectory, timeoutMs: 600_000 },
         );
         this.logger.log(`${loggerHeader} 완료: ${stdout}`);
       }

@@ -15,4 +15,7 @@ export default () => ({
     },
     debug: process.env.DB_DEBUG ? process.env.DB_DEBUG.toLowerCase() === 'true' : false,
   },
+  batch: {
+    workingDirectory: process.env.BATCH_WORKING_DIRECTORY || process.cwd(),
+  },
 });
