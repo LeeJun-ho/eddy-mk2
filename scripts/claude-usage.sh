@@ -23,8 +23,10 @@ tell application "iTerm2"
         tell current session
             set columns to 150
             set rows to 40
+            write text "n"
+            delay 1
             write text "cd /Users/gk/workspace"
-            delay 0.5
+            delay 1
             write text "claude"
             delay 6
             write text "/usage"
