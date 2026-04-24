@@ -101,7 +101,7 @@ export class TaskService {
    */
   @Transactional({ propagation: TransactionPropagation.REQUIRED })
   async startTask(task: Task): Promise<void> {
-    await this.update(task.id, { status: TaskStatus.RUNNING });
+    await this.update(task.id, { status: TaskStatus.RUNNING, startedAt: new Date() });
   }
 
   /**
@@ -109,7 +109,7 @@ export class TaskService {
    */
   @Transactional({ propagation: TransactionPropagation.REQUIRED })
   async failTask(task: Task): Promise<void> {
-    await this.update(task.id, { status: TaskStatus.FAILED });
+    await this.update(task.id, { status: TaskStatus.FAILED, finishedAt: new Date() });
   }
 
   /**
@@ -117,6 +117,6 @@ export class TaskService {
    */
   @Transactional({ propagation: TransactionPropagation.REQUIRED })
   async finishTask(task: Task): Promise<void> {
-    await this.update(task.id, { status: TaskStatus.DONE });
+    await this.update(task.id, { status: TaskStatus.DONE, finishedAt: new Date() });
   }
 }

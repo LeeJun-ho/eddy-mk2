@@ -9,6 +9,7 @@ import { BaseEntityRepository } from './repositories/base-entity.repository';
   imports: [
     ConfigModule,
     MikroOrmModule.forRootAsync({
+      driver: SqliteDriver,
       inject: [ConfigService],
       useFactory: (configService: ConfigService) => ({
         driver: SqliteDriver,

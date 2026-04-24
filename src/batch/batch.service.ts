@@ -34,11 +34,9 @@ export class BatchService {
     this.workingDirectory = this.configService.get<string>('batch.workingDirectory', process.cwd());
   }
 
-  @CreateRequestContext()
   @Cron(CronExpression.EVERY_HOUR)
+  @CreateRequestContext()
   async runEveryMinuteBatch(): Promise<void> {
-    this.logger.log('스케줄 배치 실행 시작');
-
     // 대기 중인 작업 중 우선순위가 높고 먼저 등록된 순으로 하나를 조회
     const task = await this.taskService.findOneNextPendingTask();
     if (!task) {
@@ -62,6 +60,8 @@ export class BatchService {
       } else {
         await this.runStepTask(task);
       }
+
+      await this.getClaudeSessionUsage();
     } catch (err) {
       this.logger.error(`작업 실행 중 오류: ${err}`);
       await this.taskService.failTask(task);
