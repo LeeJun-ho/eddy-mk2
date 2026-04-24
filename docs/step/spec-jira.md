@@ -9,7 +9,7 @@ Jira 티켓 ID: {{jiraKey}}
 
 1. `mcp__claude_ai_Atlassian_Rovo__getJiraIssue` 툴로 Jira 티켓 **{{jiraKey}}**을 조회해줘.
 2. 티켓의 Summary, Description, Acceptance Criteria, 댓글 등 모든 내용을 분석해줘.
-3. 상위 이슈(Sub-task)가 있으면 함께 조회해서 전체 범위를 파악해줘.
+3. {{jiraKey}}의 상위 이슈가 있으면 상위 이슈 하나만 조회해서 현재 작업의 맥락을 파악해줘. 상위 이슈의 다른 하위 이슈(형제 이슈)는 조회하지 않아도 돼.
 4. 티켓의 Components 필드를 확인하고 아래 표를 참고해 작업 대상 앱 디렉토리를 파악해줘.
 
 | Jira 컴포넌트 | apps 디렉토리     |
