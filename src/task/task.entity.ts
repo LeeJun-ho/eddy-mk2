@@ -1,4 +1,5 @@
 import { Entity, Enum, Opt, PrimaryKey, Property } from '@mikro-orm/core';
+import { IsoDateTimeType } from '@libs/database/types/iso-datetime.type';
 import { TaskPriority, TaskStatus, TaskStep, TaskType } from './task.enum';
 
 @Entity({ comment: '작업' })
@@ -31,7 +32,7 @@ export class Task {
   currentStep?: TaskStep;
 
   @Property({
-    type: 'timestamptz',
+    type: IsoDateTimeType,
     onCreate: () => new Date(),
     defaultRaw: 'CURRENT_TIMESTAMP',
     comment: '생성 일시',
@@ -39,7 +40,7 @@ export class Task {
   createdAt: Opt<Date>;
 
   @Property({
-    type: 'timestamptz',
+    type: IsoDateTimeType,
     onCreate: () => new Date(),
     onUpdate: () => new Date(),
     defaultRaw: 'CURRENT_TIMESTAMP',
@@ -47,12 +48,12 @@ export class Task {
   })
   updatedAt: Opt<Date>;
 
-  @Property({ comment: '삭제 일시', type: 'timestamptz', nullable: true })
+  @Property({ comment: '삭제 일시', type: IsoDateTimeType, nullable: true })
   deletedAt?: Date;
 
-  @Property({ comment: '시작 일시', type: 'timestamptz', nullable: true })
+  @Property({ comment: '시작 일시', type: IsoDateTimeType, nullable: true })
   startedAt?: Date;
 
-  @Property({ comment: '완료 일시', type: 'timestamptz', nullable: true })
+  @Property({ comment: '완료 일시', type: IsoDateTimeType, nullable: true })
   finishedAt?: Date;
 }

@@ -1,4 +1,5 @@
 import { Entity, Enum, ManyToOne, Opt, PrimaryKey, Property } from '@mikro-orm/core';
+import { IsoDateTimeType } from '@libs/database/types/iso-datetime.type';
 import { Task } from './task.entity';
 import { TaskStep } from './task.enum';
 
@@ -20,7 +21,7 @@ export class TaskStepResult {
   stdout?: string;
 
   @Property({
-    type: 'timestamptz',
+    type: IsoDateTimeType,
     onCreate: () => new Date(),
     defaultRaw: 'CURRENT_TIMESTAMP',
     comment: '생성 일시',
