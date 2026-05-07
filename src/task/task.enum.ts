@@ -10,8 +10,6 @@ export enum TaskType {
 
 /** 단계 */
 export enum TaskStep {
-  /** 명세 작성 */
-  SPEC = 'spec',
   /** 계획 수립 */
   PLAN = 'plan',
   /** 개발 */
@@ -36,8 +34,6 @@ export enum TaskStatus {
 
 /** 단계 프롬프트 파일명 */
 export enum StepPrompt {
-  SPEC = 'spec',
-  SPEC_JIRA = 'spec-jira',
   PLAN = 'plan',
   PLAN_JIRA = 'plan-jira',
   DEVELOPMENT = 'development',
@@ -50,19 +46,18 @@ export enum StepPrompt {
 
 /** Jira 댓글 프롬프트 */
 export enum JiraCommentPrompt {
-  /** SPEC/PLAN 완료 후 댓글 */
-  SPEC_PLAN = 'jira-comment-spec-plan',
+  /** PLAN 완료 후 댓글 */
+  PLAN = 'jira-comment-plan',
   /** 코드 리뷰 완료 후 댓글 */
   CODE_REVIEW = 'jira-comment-code-review',
 }
 
 /** 단계 순서 (낮을수록 먼저 실행) */
 export const TaskStepOrder: Record<TaskStep, number> = {
-  [TaskStep.SPEC]: 1,
-  [TaskStep.PLAN]: 2,
-  [TaskStep.DEVELOPMENT]: 3,
-  [TaskStep.CODE_REVIEW]: 4,
-  [TaskStep.FINALIZE]: 5,
+  [TaskStep.PLAN]: 1,
+  [TaskStep.DEVELOPMENT]: 2,
+  [TaskStep.CODE_REVIEW]: 3,
+  [TaskStep.FINALIZE]: 4,
 };
 
 /** 우선순위 */

@@ -160,8 +160,8 @@ export class BatchService {
     // PLAN 완료 후 Jira 댓글 등록 (중복 방지 로직 내장)
     if (task.jiraKey) {
       this.jiraActionType === JiraTicketValidationType.API
-        ? await this.postJiraCommentWithApi(JiraCommentPrompt.SPEC_PLAN, vars)
-        : await this.postJiraCommentWithPrompt(JiraCommentPrompt.SPEC_PLAN, vars);
+        ? await this.postJiraCommentWithApi(JiraCommentPrompt.PLAN, vars)
+        : await this.postJiraCommentWithPrompt(JiraCommentPrompt.PLAN, vars);
     }
 
     // DEVELOPMENT 단계
@@ -395,12 +395,12 @@ export class BatchService {
    */
   private async postJiraCommentWithApi(type: JiraCommentPrompt, vars: Record<string, string>): Promise<void> {
     const { jiraKey, taskId } = vars;
-    const loggerHeader = type === JiraCommentPrompt.SPEC_PLAN ? '[JIRA-COMMENT:SPEC/PLAN]' : '[JIRA-COMMENT:CODE_REVIEW]';
+    const loggerHeader = type === JiraCommentPrompt.PLAN ? '[JIRA-COMMENT:PLAN]' : '[JIRA-COMMENT:CODE_REVIEW]';
     this.logger.log(`${loggerHeader} #jira:${jiraKey} 댓글 등록 시작`);
     try {
       const contextDir = join(this.workingDirectory, 'local', 'context', taskId);
 
-      if (type === JiraCommentPrompt.SPEC_PLAN) {
+      if (type === JiraCommentPrompt.PLAN) {
         // 댓글 중복확인
         const marker = '구현 계획 (Plan Bot)';
         if (await this.jiraService.hasCommentWithFirstLineMarker(jiraKey, marker)) {
@@ -432,12 +432,12 @@ export class BatchService {
    */
    private async postJiraCommentWithPrompt(type: JiraCommentPrompt, vars: Record<string, string>): Promise<void> {
     const { jiraKey, taskId } = vars;
-    const loggerHeader = type === JiraCommentPrompt.SPEC_PLAN ? '[JIRA-COMMENT:SPEC/PLAN]' : '[JIRA-COMMENT:CODE_REVIEW]';
+    const loggerHeader = type === JiraCommentPrompt.PLAN ? '[JIRA-COMMENT:PLAN]' : '[JIRA-COMMENT:CODE_REVIEW]';
     this.logger.log(`${loggerHeader} #jira:${jiraKey} 댓글 등록 시작`);
     try {
       const contextDir = join(this.workingDirectory, 'local', 'context', taskId);
 
-      if (type === JiraCommentPrompt.SPEC_PLAN) {
+      if (type === JiraCommentPrompt.PLAN) {
         // 댓글 중복확인
         const marker = '요구사항 (Spec Bot)';
         if (await this.jiraService.hasCommentWithFirstLineMarker(jiraKey, marker)) {
@@ -446,7 +446,7 @@ export class BatchService {
         }
 
         // 프롬프트로 댓글 등록
-        let docsFileName = JiraCommentPrompt.SPEC_PLAN;
+        let docsFileName = JiraCommentPrompt.PLAN;
         const { stdout } = await this.commandRunner.run(
           'claude',
           ['--dangerously-skip-permissions', '-p', this.loadStepPrompt(docsFileName, vars)],
