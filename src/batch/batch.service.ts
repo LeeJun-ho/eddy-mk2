@@ -147,17 +147,7 @@ export class BatchService {
       await this.cleanupWorkingDirectory();
     }
 
-    // SPEC 단계
-    if (!this.isStepCompleted(task.currentStep, TaskStep.SPEC)) {
-      const specOk = await this.runClaudeStep(TaskStep.SPEC, vars, task, 600_000);
-      if (!specOk) return;
-      task.currentStep = TaskStep.SPEC;
-      await this.taskService.updateCurrentStep(task, TaskStep.SPEC);
-    } else {
-      this.logger.log(`[SPEC] 이미 완료됨, 스킵`);
-    }
-
-    // PLAN 단계
+    // PLAN 단계 (요구사항 정리 + 구현 계획)
     if (!this.isStepCompleted(task.currentStep, TaskStep.PLAN)) {
       const planOk = await this.runClaudeStep(TaskStep.PLAN, vars, task, 600_000);
       if (!planOk) return;
@@ -346,15 +336,13 @@ export class BatchService {
       docsFileName = vars.jiraKey ? StepPrompt.FINALIZE_JIRA : StepPrompt.FINALIZE;
     } else if (step === TaskStep.DEVELOPMENT) {
       docsFileName = vars.jiraKey ? StepPrompt.DEVELOPMENT_JIRA : StepPrompt.DEVELOPMENT;
-    } else if (step === TaskStep.SPEC) {
-      docsFileName = vars.jiraKey ? StepPrompt.SPEC_JIRA : StepPrompt.SPEC;
     } else {
-      docsFileName = StepPrompt.PLAN;
+      docsFileName = vars.jiraKey ? StepPrompt.PLAN_JIRA : StepPrompt.PLAN;
     }
 
     // 이미 완료된 파일이 있으면 Claude 실행 스킵
     if (step !== TaskStep.DEVELOPMENT) {
-      const existingPath = join(this.workingDirectory, 'local', 'context', vars.taskId, `${docsFileName}.md`);
+      const existingPath = join(this.workingDirectory, 'local', 'context', vars.taskId, `${step}.md`);
       if (existsSync(existingPath)) {
         const existingContent = readFileSync(existingPath, 'utf-8');
         if (existingContent.trimEnd().endsWith('DONE')) {
@@ -414,16 +402,15 @@ export class BatchService {
 
       if (type === JiraCommentPrompt.SPEC_PLAN) {
         // 댓글 중복확인
-        const marker = '요구사항 (Spec Bot)';
+        const marker = '구현 계획 (Plan Bot)';
         if (await this.jiraService.hasCommentWithFirstLineMarker(jiraKey, marker)) {
           this.logger.warn(`${loggerHeader} 이미 등록된 댓글이 있어 건너뜁니다.`);
           return;
         }
 
         // API 요청으로 댓글 등록
-        const spec = readFileSync(join(contextDir, 'spec.md'), 'utf-8');
         const plan = readFileSync(join(contextDir, 'plan.md'), 'utf-8');
-        const body = `## 요구사항 (Spec Bot)\n\n${spec}\n\n---\n\n## 구현 계획 (Plan Bot)\n\n${plan}`;
+        const body = `## 구현 계획 (Plan Bot)\n\n${plan}`;
         await this.jiraService.addComment(jiraKey, body);
 
       } else if (type === JiraCommentPrompt.CODE_REVIEW) {
@@ -484,6 +471,9 @@ export class BatchService {
     }
   }
 
+  /**
+   * 단계 완료 여부 확인
+   */
   private isStepCompleted(currentStep: TaskStep | undefined, step: TaskStep): boolean {
     if (!currentStep) return false;
     return TaskStepOrder[currentStep] >= TaskStepOrder[step];

@@ -39,6 +39,7 @@ export enum StepPrompt {
   SPEC = 'spec',
   SPEC_JIRA = 'spec-jira',
   PLAN = 'plan',
+  PLAN_JIRA = 'plan-jira',
   DEVELOPMENT = 'development',
   DEVELOPMENT_JIRA = 'development-jira',
   CODE_REVIEW = 'code-review',
