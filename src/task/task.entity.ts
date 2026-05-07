@@ -31,6 +31,9 @@ export class Task {
   @Enum({ items: () => TaskStep, comment: '현재 단계 (단계별 개발 타입에서 사용)', nullable: true })
   currentStep?: TaskStep;
 
+  @Property({ comment: '실패 횟수', default: 0 })
+  failCount: Opt<number> = 0;
+
   @Property({
     type: IsoDateTimeType,
     onCreate: () => new Date(),

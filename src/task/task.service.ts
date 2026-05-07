@@ -109,7 +109,11 @@ export class TaskService {
    */
   @Transactional({ propagation: TransactionPropagation.REQUIRED })
   async failTask(task: Task): Promise<void> {
-    await this.update(task.id, { status: TaskStatus.FAILED, finishedAt: new Date() });
+    await this.em.nativeUpdate(Task, { id: task.id }, {
+      status: TaskStatus.FAILED,
+      finishedAt: new Date(),
+      failCount: task.failCount + 1,
+    });
   }
 
   /**

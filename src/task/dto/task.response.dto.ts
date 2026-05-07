@@ -30,6 +30,9 @@ export class TaskResponseDto {
   @ApiProperty({ title: '현재 단계', enum: TaskStep, enumName: 'TaskStep', nullable: true, required: false })
   currentStep?: TaskStep;
 
+  @ApiProperty({ title: '실패 횟수', example: 0 })
+  failCount: number;
+
   @ApiProperty({ title: '생성 일시', type: Date })
   createdAt: Date;
 
@@ -53,6 +56,7 @@ export class TaskResponseDto {
     response.enableCodeReview = entity.enableCodeReview;
     response.priority = entity.priority;
     response.currentStep = entity.currentStep;
+    response.failCount = entity.failCount;
     response.createdAt = entity.createdAt;
     response.updatedAt = entity.updatedAt;
     response.startedAt = entity.startedAt;
