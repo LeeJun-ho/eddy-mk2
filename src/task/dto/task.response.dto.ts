@@ -1,6 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { Task } from '../task.entity';
-import { TaskPriority, TaskStatus, TaskType } from '../task.enum';
+import { TaskPriority, TaskStatus, TaskStep, TaskType } from '../task.enum';
 
 export class TaskResponseDto {
   @ApiProperty({ title: '고유 식별자', type: Number, example: 1 })
@@ -27,6 +27,9 @@ export class TaskResponseDto {
   @ApiProperty({ title: '우선순위', enum: TaskPriority, enumName: 'TaskPriority', example: TaskPriority.MEDIUM })
   priority: TaskPriority;
 
+  @ApiProperty({ title: '현재 단계', enum: TaskStep, enumName: 'TaskStep', nullable: true, required: false })
+  currentStep?: TaskStep;
+
   @ApiProperty({ title: '생성 일시', type: Date })
   createdAt: Date;
 
@@ -49,6 +52,7 @@ export class TaskResponseDto {
     response.jiraKey = entity.jiraKey;
     response.enableCodeReview = entity.enableCodeReview;
     response.priority = entity.priority;
+    response.currentStep = entity.currentStep;
     response.createdAt = entity.createdAt;
     response.updatedAt = entity.updatedAt;
     response.startedAt = entity.startedAt;

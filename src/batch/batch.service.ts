@@ -7,7 +7,7 @@ import { CreateRequestContext, MikroORM } from '@mikro-orm/core';
 import { CommandRunnerService } from './command-runner.service';
 import { TaskService } from '../task/task.service';
 import { Task } from '../task/task.entity';
-import { JiraCommentPrompt, StepPrompt, TaskStep, TaskType } from '../task/task.enum';
+import { JiraCommentPrompt, StepPrompt, TaskStepOrder, TaskStep, TaskType } from '../task/task.enum';
 import { TaskStepResultService } from '../task/task-step-result.service';
 import { JiraService } from '@libs/jira/jira.service';
 
@@ -142,45 +142,75 @@ export class BatchService {
       if (!isValid) return;
     }
 
-    // 작업 디렉토리 정리 (uncommitted 커밋, develop 브랜치 복귀)
-    await this.cleanupWorkingDirectory();
+    // DEVELOPMENT 이전 단계부터 시작하는 경우에만 작업 디렉토리 정리
+    if (!task.currentStep || TaskStepOrder[task.currentStep] < TaskStepOrder[TaskStep.DEVELOPMENT]) {
+      await this.cleanupWorkingDirectory();
+    }
 
     // SPEC 단계
-    const specOk = await this.runClaudeStep(TaskStep.SPEC, vars, task, 600_000);
-    if (!specOk) return;
+    if (!this.isStepCompleted(task.currentStep, TaskStep.SPEC)) {
+      const specOk = await this.runClaudeStep(TaskStep.SPEC, vars, task, 600_000);
+      if (!specOk) return;
+      task.currentStep = TaskStep.SPEC;
+      await this.taskService.updateCurrentStep(task, TaskStep.SPEC);
+    } else {
+      this.logger.log(`[SPEC] 이미 완료됨, 스킵`);
+    }
 
     // PLAN 단계
-    const planOk = await this.runClaudeStep(TaskStep.PLAN, vars, task, 600_000);
-    if (!planOk) return;
+    if (!this.isStepCompleted(task.currentStep, TaskStep.PLAN)) {
+      const planOk = await this.runClaudeStep(TaskStep.PLAN, vars, task, 600_000);
+      if (!planOk) return;
+      task.currentStep = TaskStep.PLAN;
+      await this.taskService.updateCurrentStep(task, TaskStep.PLAN);
+    } else {
+      this.logger.log(`[PLAN] 이미 완료됨, 스킵`);
+    }
 
-    // PLAN 완료 후 Jira 댓글 등록
-    // 실패해도 다음 단계로 진행
+    // PLAN 완료 후 Jira 댓글 등록 (중복 방지 로직 내장)
     if (task.jiraKey) {
-      this.jiraActionType === JiraTicketValidationType.API 
-        ? await this.postJiraCommentWithApi(JiraCommentPrompt.SPEC_PLAN, vars) 
+      this.jiraActionType === JiraTicketValidationType.API
+        ? await this.postJiraCommentWithApi(JiraCommentPrompt.SPEC_PLAN, vars)
         : await this.postJiraCommentWithPrompt(JiraCommentPrompt.SPEC_PLAN, vars);
     }
 
     // DEVELOPMENT 단계
-    await this.runClaudeStep(TaskStep.DEVELOPMENT, vars, task, 3_600_000);
+    if (!this.isStepCompleted(task.currentStep, TaskStep.DEVELOPMENT)) {
+      await this.runClaudeStep(TaskStep.DEVELOPMENT, vars, task, 3_600_000);
+      task.currentStep = TaskStep.DEVELOPMENT;
+      await this.taskService.updateCurrentStep(task, TaskStep.DEVELOPMENT);
+    } else {
+      this.logger.log(`[DEVELOPMENT] 이미 완료됨, 스킵`);
+    }
 
     // 코드리뷰 실행
     if (task.enableCodeReview) {
-      const reviewOk = await this.runClaudeStep(TaskStep.CODE_REVIEW, vars, task, 3_600_000);
-      if (!reviewOk) return;
+      if (!this.isStepCompleted(task.currentStep, TaskStep.CODE_REVIEW)) {
+        const reviewOk = await this.runClaudeStep(TaskStep.CODE_REVIEW, vars, task, 3_600_000);
+        if (!reviewOk) return;
+        task.currentStep = TaskStep.CODE_REVIEW;
+        await this.taskService.updateCurrentStep(task, TaskStep.CODE_REVIEW);
+      } else {
+        this.logger.log(`[CODE_REVIEW] 이미 완료됨, 스킵`);
+      }
 
-      // 코드리뷰 완료 후 Jira 댓글 등록
-      // 실패해도 다음 단계로 진행
+      // 코드리뷰 완료 후 Jira 댓글 등록 (중복 방지 로직 내장)
       if (task.jiraKey) {
-        this.jiraActionType === JiraTicketValidationType.API 
-          ? await this.postJiraCommentWithApi(JiraCommentPrompt.CODE_REVIEW, vars) 
+        this.jiraActionType === JiraTicketValidationType.API
+          ? await this.postJiraCommentWithApi(JiraCommentPrompt.CODE_REVIEW, vars)
           : await this.postJiraCommentWithPrompt(JiraCommentPrompt.CODE_REVIEW, vars);
       }
     }
 
     // 마무리 (커밋 + develop 복귀)
-    const finalizeOk = await this.runClaudeStep(TaskStep.FINALIZE, vars, task, 600_000);
-    if (!finalizeOk) return;
+    if (!this.isStepCompleted(task.currentStep, TaskStep.FINALIZE)) {
+      const finalizeOk = await this.runClaudeStep(TaskStep.FINALIZE, vars, task, 600_000);
+      if (!finalizeOk) return;
+      task.currentStep = TaskStep.FINALIZE;
+      await this.taskService.updateCurrentStep(task, TaskStep.FINALIZE);
+    } else {
+      this.logger.log(`[FINALIZE] 이미 완료됨, 스킵`);
+    }
 
     // 작업 상태를 완료로 변경
     // 브랜치를 확인해서 develop 브랜치가 아니면 실패
@@ -329,6 +359,8 @@ export class BatchService {
         const existingContent = readFileSync(existingPath, 'utf-8');
         if (existingContent.trimEnd().endsWith('DONE')) {
           this.logger.log(`[${step.toUpperCase()}] 완료된 파일 존재, Claude 스킵`);
+          task.currentStep = step;
+          await this.taskService.updateCurrentStep(task, step);
           return true;
         }
       }
@@ -450,6 +482,11 @@ export class BatchService {
     } catch (err) {
       this.logger.error(`${loggerHeader} 댓글 등록 실패 (계속 진행): ${err}`);
     }
+  }
+
+  private isStepCompleted(currentStep: TaskStep | undefined, step: TaskStep): boolean {
+    if (!currentStep) return false;
+    return TaskStepOrder[currentStep] >= TaskStepOrder[step];
   }
 
   /**

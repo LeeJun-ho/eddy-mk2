@@ -55,6 +55,15 @@ export enum JiraCommentPrompt {
   CODE_REVIEW = 'jira-comment-code-review',
 }
 
+/** 단계 순서 (낮을수록 먼저 실행) */
+export const TaskStepOrder: Record<TaskStep, number> = {
+  [TaskStep.SPEC]: 1,
+  [TaskStep.PLAN]: 2,
+  [TaskStep.DEVELOPMENT]: 3,
+  [TaskStep.CODE_REVIEW]: 4,
+  [TaskStep.FINALIZE]: 5,
+};
+
 /** 우선순위 */
 export enum TaskPriority {
   /** 매우 낮음 */

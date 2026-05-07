@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Controller,
   Get,
   Post,
@@ -16,6 +17,7 @@ import { UpdateTaskRequestDto } from './dto/update-task.request.dto';
 import { FindManyTaskRequestDto } from './dto/find-many-task.request.dto';
 import { TaskResponseDto } from './dto/task.response.dto';
 import { TaskListResponseDto } from './dto/task-list.response.dto';
+import { TaskStatus } from './task.enum';
 
 @ApiTags('작업(Task)')
 @Controller('tasks')
@@ -54,6 +56,18 @@ export class TaskController {
   async update(@Param('id', ParseIntPipe) id: number, @Body() dto: UpdateTaskRequestDto): Promise<TaskResponseDto> {
     const task = await this.taskService.update(id, dto);
     return TaskResponseDto.from(task);
+  }
+
+  @ApiOperation({ summary: '실패한 작업 재시도 (FAILED → PENDING, currentStep 유지)' })
+  @ApiOkResponse({ description: '재시도 등록 성공', type: TaskResponseDto })
+  @Post(':id/retry')
+  async retry(@Param('id', ParseIntPipe) id: number): Promise<TaskResponseDto> {
+    const task = await this.taskService.findOne(id);
+    if (task.status !== TaskStatus.FAILED) {
+      throw new BadRequestException('실패한 작업만 재시도할 수 있습니다.');
+    }
+    await this.taskService.retryTask(task);
+    return TaskResponseDto.from(await this.taskService.findOne(id));
   }
 
   @ApiOperation({ summary: '작업 삭제' })

@@ -1,7 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { QueryOrder, Transactional, TransactionPropagation } from '@mikro-orm/sqlite';
 import { Task } from './task.entity';
-import { TaskPriority, TaskStatus, TaskType } from './task.enum';
+import { TaskPriority, TaskStatus, TaskStep, TaskType } from './task.enum';
 import { CreateTaskRequestDto } from './dto/create-task.request.dto';
 import { UpdateTaskRequestDto } from './dto/update-task.request.dto';
 import { FindManyTaskRequestDto } from './dto/find-many-task.request.dto';
@@ -118,5 +118,25 @@ export class TaskService {
   @Transactional({ propagation: TransactionPropagation.REQUIRED })
   async finishTask(task: Task): Promise<void> {
     await this.update(task.id, { status: TaskStatus.DONE, finishedAt: new Date() });
+  }
+
+  /**
+   * 실패한 작업을 재시도 (FAILED → PENDING, currentStep 유지)
+   */
+  @Transactional({ propagation: TransactionPropagation.REQUIRED })
+  async retryTask(task: Task): Promise<void> {
+    await this.em.nativeUpdate(Task, { id: task.id }, {
+      status: TaskStatus.PENDING,
+      startedAt: null,
+      finishedAt: null,
+    });
+  }
+
+  /**
+   * 현재 단계 업데이트
+   */
+  @Transactional({ propagation: TransactionPropagation.REQUIRED })
+  async updateCurrentStep(task: Task, step: TaskStep): Promise<void> {
+    await this.taskRepository.update(task.id, { currentStep: step });
   }
 }
