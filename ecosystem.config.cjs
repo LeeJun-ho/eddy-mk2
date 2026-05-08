@@ -3,7 +3,7 @@ module.exports = {
     {
       name: 'eddy-mk2-batch',
       script: 'dist/main.js',
-      cwd: __dirname,
+      cwd: require('path').join(__dirname, 'backend'),
       instances: 1,
       exec_mode: 'fork',
       autorestart: true,
