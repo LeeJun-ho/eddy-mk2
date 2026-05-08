@@ -18,4 +18,7 @@ export default () => ({
   batch: {
     workingDirectory: process.env.BATCH_WORKING_DIRECTORY || process.cwd(),
   },
+  jwt: {
+    secret: process.env.JWT_SECRET || 'eddy-mk2-secret',
+  },
 });

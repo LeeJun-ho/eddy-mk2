@@ -10,6 +10,7 @@ import { JiraModule } from '@libs/jira/jira.module';
 import configuration from './config/configuration';
 import { TaskModule } from './task/task.module';
 import { BatchRunCommand } from './batch/batch-run.command';
+import { AuthModule } from './auth/auth.module';
 
 @Module({
   imports: [
@@ -21,6 +22,7 @@ import { BatchRunCommand } from './batch/batch-run.command';
     JiraModule,
     ScheduleModule.forRoot(),
     TaskModule,
+    AuthModule,
   ],
   controllers: [AppController],
   providers: [AppService, BatchService, CommandRunnerService, BatchRunCommand],
